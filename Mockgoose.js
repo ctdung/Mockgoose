@@ -15,7 +15,7 @@ var path = require('path');
 var fs = require('fs');
 var Q = require('q');
 
-module.exports = function(mongoose, db_opts) {
+module.exports = function (mongoose, db_opts) {
     var deferred = Q.defer();
     var orig_connect = mongoose.connect;
     var orig_createConnection = mongoose.createConnection;
@@ -72,9 +72,9 @@ module.exports = function(mongoose, db_opts) {
     }
 
     var orig_dbpath = db_opts.dbpath;
-    start_server(db_opts, function(mockgoose_uri) {
+    start_server(db_opts, function (mockgoose_uri) {
         // for now no errors
-        mongoose.connect = function() {
+        mongoose.connect = function () {
             connect_type = "connect";
             connect_args = arguments;
             orig_connect_uri = connect_args[0];
@@ -82,7 +82,7 @@ module.exports = function(mongoose, db_opts) {
             return orig_connect.apply(mongoose, connect_args);
         };
 
-        mongoose.createConnection = function() {
+        mongoose.createConnection = function () {
             connect_type = "createConnection";
             createConnection_args = arguments;
             orig_createConnection_uri = createConnection_args[0];
@@ -92,12 +92,11 @@ module.exports = function(mongoose, db_opts) {
 
         mongoose.isMocked = true;
 
-        mongoose.connection.once('disconnected', function() {
+        mongoose.connection.once('disconnected', function () {
             debug('Mongoose disconnected');
         });
         deferred.resolve(mockgoose_uri);
     });
-
 
 
     function start_server(db_opts, start_server_callback) {
@@ -105,7 +104,7 @@ module.exports = function(mongoose, db_opts) {
         portfinder.getPort({
             host: db_opts.bind_ip,
             port: db_opts.port,
-        }, function(err, freePort) {
+        }, function (err, freePort) {
             if (err) {
                 debug("error from portfinder:", err);
                 throw err;
@@ -117,16 +116,16 @@ module.exports = function(mongoose, db_opts) {
             db_opts.dbpath = path.join(orig_dbpath, db_opts.port.toString());
 
             /*
-                when in place upgrade is done of mongodb,
-                we need to clean directory first, otherwise
-                this error is returned:
-                    exception in initAndListen: 28662 Cannot start server. 
-                    Detected data files in /Mockgoose/.mongooseTempDB/27017 
-                    created by the 'inMemoryExperiment' storage engine, 
-                    but the specified storage engine was 'ephemeralForTest'., 
-                    terminating
-            */
-            rimraf(db_opts.dbpath, function(err) {
+             when in place upgrade is done of mongodb,
+             we need to clean directory first, otherwise
+             this error is returned:
+             exception in initAndListen: 28662 Cannot start server.
+             Detected data files in /Mockgoose/.mongooseTempDB/27017
+             created by the 'inMemoryExperiment' storage engine,
+             but the specified storage engine was 'ephemeralForTest'.,
+             terminating
+             */
+            rimraf(db_opts.dbpath, function (err) {
                 debug("Error from rimraf:", err);
                 try {
                     fs.mkdirSync(db_opts.dbpath);
@@ -141,30 +140,35 @@ module.exports = function(mongoose, db_opts) {
                     auto_shutdown: true
                 };
 
-                var startResult = mongod.start_server(server_opts);
-                if (startResult === 0) {
-                    debug('mongod.start_server connected');
-                    var mock_uri = "mongodb://localhost:" + db_opts.port;
-                    start_server_callback(mock_uri);
-                } else {
-                    debug('unable to start mongodb on: %d', freePort);
-                    db_opts.port = ++freePort;
-                    start_server(db_opts, start_server_callback);
-                }
+                mongod.start_server(server_opts, function (err) {
+                    // console.log("err " + err);
+                    if (!err) {
+                        console.log('mongod.start_server connected on port ' + db_opts.port);
+                        //debug('mongod.start_server connected');
+                        var mock_uri = "mongodb://localhost:" + db_opts.port;
+                        start_server_callback(mock_uri);
+                    } else {
+                        console.log('unable to start mongodb on' + freePort);
+                        console.log("err " + err);
+                        //debug('unable to start mongodb on: %d', freePort);
+                        db_opts.port = ++freePort;
+                        start_server(db_opts, start_server_callback);
+                    }
+                });
             });
         });
     }
 
-    module.exports.reset = function(done) {
-        mongoose.connection.db.dropDatabase(function(err) {
+    module.exports.reset = function (done) {
+        mongoose.connection.db.dropDatabase(function (err) {
             if (typeof done === "function") {
                 done(err);
             }
         });
     };
 
-    mongoose.unmock = function(callback) {
-        mongoose.disconnect(function() {
+    mongoose.unmock = function (callback) {
+        mongoose.disconnect(function () {
             delete mongoose.isMocked;
             connect_args[0] = orig_connect_uri;
             mongoose.connect = orig_connect;
@@ -173,9 +177,9 @@ module.exports = function(mongoose, db_opts) {
         });
     };
 
-    mongoose.unmockAndReconnect = function(callback) {
-        mongoose.unmock(function() {
-            var overloaded_callback = function(err) {
+    mongoose.unmockAndReconnect = function (callback) {
+        mongoose.unmock(function () {
+            var overloaded_callback = function (err) {
                 callback(err);
             };
             // mongoose connect prototype connect(String, Object?, Function?)
